@@ -26,7 +26,7 @@ def run_web():
     app.run(host="0.0.0.0", port=port)
 Thread(target=run_web, daemon=True).start()
 
-BOT_TOKEN = "8984459858:AAG6tZsxbKeqomLA6fdAa_VgDy0VMVxfsNg"
+BOT_TOKEN = "8984459858:"
 ADMIN_ID = 7952385899
 ADMIN_USERNAME = "@DULU_VAI"
 bot = telebot.TeleBot(BOT_TOKEN)
