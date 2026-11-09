@@ -6,7 +6,6 @@ from datetime import datetime
 from flask import Flask
 from threading import Thread
 
-# ---------- RENDER LIVE থাকার জন্য - এটা মুছবা না ----------
 app = Flask(__name__)
 @app.route('/')
 def home():
@@ -15,28 +14,21 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 Thread(target=run_web, daemon=True).start()
-# -------------------------------------------------------
 
 BOT_TOKEN = "8984459858:AAGp4YVV91muymq0ErICTulevJ-ZSsT31ds"
 ADMIN_ID = 7952385899
 ADMIN_USERNAME = "@DULU_VAI"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# ---------- DATA ----------
 DEFAULT_DASH = """╔═══════════════════════╗
 ║ 💎 MAIL SHOP BD 💎 ║
-║ ✨ VERIFIED BOT ✨ ║
 ╚═══════════════════════╝
-🌟 ━━━ WELCOME ━━━ 🌟
-┏━ 👤 USER INFORMATION ━┓
-┃ 👑 Name: {name}
-┃ 💌 Username: {username}
-┃ 🆔 ID: {uid}
-┃ 💰 Balance: {bal:.2f} Tk
-┗━━━━━━━━━━━━━━━━━━━━━┛
+👤 Name: {name}
+💌 Username: {username}
+🆔 ID: {uid}
+💰 Balance: {bal:.2f} Tk
 
-🛒 নিচ থেকে প্রোডাক্ট সিলেক্ট করে কিনো।
-💳 আগে ডিপোজিট করো, তারপর কিনতে পারবা।"""
+🛒 নিচ থেকে প্রোডাক্ট সিলেক্ট করে কিনো।"""
 
 def save():
     json.dump(data, open("data.json","w"))
@@ -96,7 +88,6 @@ def join_markup():
     markup.add(types.InlineKeyboardButton("Join করছি, Check করো", callback_data="check_join"))
     return markup
 
-# ---------- START / MENU ----------
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = str(message.from_user.id)
@@ -152,9 +143,7 @@ def mybal(call):
 @bot.callback_query_handler(func=lambda c: c.data=="back_menu")
 def back_menu(call):
     show_menu(call.message.chat.id, str(call.from_user.id), call)
-
-# ---------- ADMIN PANEL ----------
-@bot.message_handler(commands=['admin'])
+    @bot.message_handler(commands=['admin'])
 def admin(message):
     if message.from_user.id != ADMIN_ID:
         return
@@ -166,17 +155,16 @@ def admin(message):
     markup.add(types.InlineKeyboardButton("📤 Excel Upload / স্টক Add", callback_data="admin_upload_list"))
     markup.add(types.InlineKeyboardButton("📢 সবাইকে মেসেজ (Broadcast)", callback_data="broadcast_start"))
     markup.add(types.InlineKeyboardButton("📊 Status", callback_data="status"))
-    markup.add(types.InlineKeyboardButton("📥 Receive - Excel (সব মেম্বার)", callback_data="receive_excel"))
-    bot.send_message(message.chat.id, f"👑 এডমিন প্যানেল - {ADMIN_USERNAME}\n\nপেমেন্ট: /addpayment bkash 016XXX | /delpayment bkash\nচ্যানেল: /addchannel @mychannel | /delchannel @mychannel", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("📥 Receive - Excel", callback_data="receive_excel"))
+    bot.send_message(message.chat.id, f"👑 এডমিন প্যানেল\n\nপেমেন্ট: /addpayment bkash 016XXX\nচ্যানেল: /addchannel @mychannel", reply_markup=markup)
 
-# --- DASHBOARD CHANGE ---
 @bot.callback_query_handler(func=lambda c: c.data=="admin_change_dash")
 def change_dash_start(call):
     if call.from_user.id != ADMIN_ID:
         return
     data["temp"][str(call.from_user.id)] = {"step": "change_dash"}
     save()
-    bot.send_message(call.message.chat.id, "✏️ ড্যাশবোর্ড মেসেজ চেঞ্জ করো\n\nএখন নতুন মেসেজটা লিখে পাঠাও।\n\nতুমি এই ৪টা ব্যবহার করতে পারবা:\n{name} = নাম\n{username} = ইউজারনেম\n{uid} = আইডি\n{bal} = ব্যালেন্স")
+    bot.send_message(call.message.chat.id, "নতুন ড্যাশবোর্ড মেসেজ লিখে পাঠাও।\n{name} {username} {uid} {bal} ব্যবহার করতে পারবা।")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="change_dash")
 def change_dash_save(message):
@@ -185,16 +173,15 @@ def change_dash_save(message):
     data["settings"]["dashboard"] = message.text
     del data["temp"][str(message.from_user.id)]
     save()
-    bot.send_message(message.chat.id, "✅ ড্যাশবোর্ড মেসেজ চেঞ্জ হইছে! এখন /start দিয়ে দেখো।")
+    bot.send_message(message.chat.id, "✅ ড্যাশবোর্ড চেঞ্জ হইছে!")
 
-# --- BANNER CHANGE ---
 @bot.callback_query_handler(func=lambda c: c.data=="admin_change_banner")
 def change_banner_start(call):
     if call.from_user.id != ADMIN_ID:
         return
     data["temp"][str(call.from_user.id)] = {"step": "change_banner"}
     save()
-    bot.send_message(call.message.chat.id, "🖼️ ব্যানার চেঞ্জ করো\n\nএখন নতুন ব্যানার ছবিটা পাঠাও।")
+    bot.send_message(call.message.chat.id, "নতুন ব্যানার ছবিটা পাঠাও।")
 
 @bot.message_handler(commands=['addchannel'])
 def addch(message):
@@ -245,14 +232,13 @@ def delpay(message):
     except:
         bot.send_message(message.chat.id, "ভুল! /delpayment bkash")
 
-# ---------- ADMIN: ADD PRODUCT ----------
 @bot.callback_query_handler(func=lambda c: c.data=="admin_add_product")
 def admin_add_start(call):
     if call.from_user.id != ADMIN_ID:
         return
     data["temp"][str(call.from_user.id)] = {"step": "prod_name"}
     save()
-    bot.send_message(call.message.chat.id, "➕ নতুন প্রোডাক্ট Add\n\nপ্রোডাক্টের নাম কি? যেমন: Fresh Gmail 2024")
+    bot.send_message(call.message.chat.id, "প্রোডাক্টের নাম কি?")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="prod_name")
 def prod_name_step(message):
@@ -262,7 +248,7 @@ def prod_name_step(message):
     data["temp"][uid]["prod_name"] = message.text.strip()
     data["temp"][uid]["step"] = "prod_price"
     save()
-    bot.send_message(message.chat.id, f"নাম: {message.text}\n\nএখন দাম কত? পার পিস দাম লিখো। যেমন: 50")
+    bot.send_message(message.chat.id, f"নাম: {message.text}\n\nএখন দাম কত? যেমন: 50")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="prod_price")
 def prod_price_step(message):
@@ -277,7 +263,7 @@ def prod_price_step(message):
     data["temp"][uid]["prod_price"] = price
     data["temp"][uid]["step"] = "prod_excel"
     save()
-    bot.send_message(message.chat.id, f"দাম: {price} Tk / পিস\n\nএখন Excel ফাইলটা পাঠাও।\n\n১ লাইন = ১ পিস।")
+    bot.send_message(message.chat.id, f"দাম: {price} Tk / পিস\n\nএখন Excel ফাইলটা পাঠাও।")
 
 @bot.callback_query_handler(func=lambda c: c.data=="admin_upload_list")
 def upload_list(call):
@@ -289,7 +275,7 @@ def upload_list(call):
     markup = types.InlineKeyboardMarkup(row_width=1)
     for key, p in data["products"].items():
         markup.add(types.InlineKeyboardButton(f"{p['name']} - স্টক Add করো", callback_data=f"upload_for_{key}"))
-    bot.send_message(call.message.chat.id, "কোন প্রোডাক্টে Excel / স্টক Add করবা?", reply_markup=markup)
+    bot.send_message(call.message.chat.id, "কোন প্রোডাক্টে স্টক Add করবা?", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("upload_for_"))
 def upload_for(call):
@@ -327,9 +313,7 @@ def delprod_btn(call):
         if os.path.exists(path):
             os.remove(path)
         bot.send_message(call.message.chat.id, "প্রোডাক্ট Delete হইছে")
-
-# ---------- HANDLE EXCEL DOCUMENT ----------
-@bot.message_handler(content_types=['document'])
+        @bot.message_handler(content_types=['document'])
 def handle_doc(message):
     uid = str(message.from_user.id)
     if message.from_user.id != ADMIN_ID:
@@ -354,7 +338,7 @@ def handle_doc(message):
         del data["temp"][uid]
         save()
         stock = count_stock(key)
-        bot.send_message(message.chat.id, f"✅ প্রোডাক্ট Add হইছে!\n\nনাম: {t['prod_name']}\nদাম: {t['prod_price']} Tk / পিস\nস্টক: {stock} পিস")
+        bot.send_message(message.chat.id, f"✅ প্রোডাক্ট Add হইছে!\nনাম: {t['prod_name']}\nদাম: {t['prod_price']} Tk\nস্টক: {stock} পিস")
     else:
         key = t["key"]
         path = f"stock_{key}.xlsx"
@@ -392,9 +376,8 @@ def handle_doc(message):
         del data["temp"][uid]
         save()
         stock = count_stock(key)
-        bot.send_message(message.chat.id, f"✅ স্টক Add হইছে!\n\nনতুন যোগ হইছে: {added} পিস\nএখন মোট স্টক: {stock} পিস")
+        bot.send_message(message.chat.id, f"✅ স্টক Add হইছে!\nনতুন: {added} পিস\nমোট স্টক: {stock} পিস")
 
-# ---------- STATUS / RECEIVE / BROADCAST ----------
 @bot.callback_query_handler(func=lambda c: c.data=="status")
 def status(call):
     if call.from_user.id != ADMIN_ID:
@@ -403,7 +386,7 @@ def status(call):
     total_bal = sum(u["balance"] for u in data["users"].values())
     total_sold = sum(u["bought_count"] for u in data["users"].values())
     total_stock = sum(count_stock(k) for k in data["products"].keys())
-    bot.send_message(call.message.chat.id, f"📊 STATUS\n\nমোট মেম্বার: {total_users}\nমোট ব্যালেন্স: {total_bal} Tk\nমোট বিক্রি: {total_sold} টি\nমোট প্রোডাক্ট: {len(data['products'])} টি\nমোট স্টক: {total_stock} পিস")
+    bot.send_message(call.message.chat.id, f"📊 STATUS\nমেম্বার: {total_users}\nব্যালেন্স: {total_bal} Tk\nবিক্রি: {total_sold} টি\nপ্রোডাক্ট: {len(data['products'])} টি\nস্টক: {total_stock} পিস")
 
 @bot.callback_query_handler(func=lambda c: c.data=="receive_excel")
 def receive_excel(call):
@@ -412,7 +395,7 @@ def receive_excel(call):
     wb = Workbook()
     ws = wb.active
     ws.title = "Members"
-    ws.append(["Telegram ID", "নাম", "ইউজারনেম", "ব্যালেন্স (Tk)", "কয়টা কিনছে", "কি কি প্রোডাক্ট কিনছে"])
+    ws.append(["Telegram ID", "নাম", "ইউজারনেম", "ব্যালেন্স", "কয়টা কিনছে", "কি কিনছে"])
     for uid, u in data["users"].items():
         bought_str = ", ".join(u.get("bought", [])) if u.get("bought") else "কিছু কিনে নাই"
         ws.append([uid, u.get("name",""), "@"+u.get("username","") if u.get("username") else "", u.get("balance",0), u.get("bought_count",0), bought_str])
@@ -426,7 +409,7 @@ def bc_start(call):
         return
     data["temp"][str(call.from_user.id)] = {"step": "broadcast"}
     save()
-    bot.send_message(call.message.chat.id, "সবাইকে কি মেসেজ পাঠাবা?\nএখন মেসেজটা লিখে পাঠাও।")
+    bot.send_message(call.message.chat.id, "সবাইকে কি মেসেজ পাঠাবা? এখন লিখে পাঠাও।")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="broadcast")
 def bc_send(message):
@@ -443,7 +426,6 @@ def bc_send(message):
             pass
     bot.send_message(message.chat.id, f"Broadcast শেষ! {count} জনকে পাঠানো হইছে।")
 
-# ---------- DEPOSIT ----------
 @bot.callback_query_handler(func=lambda c: c.data=="deposit")
 def deposit_start(call):
     if not data["payments"]:
@@ -475,7 +457,7 @@ def get_amount(message):
     data["temp"][uid]["amount"] = amount
     data["temp"][uid]["step"] = "trxid"
     save()
-    bot.send_message(message.chat.id, f"পেমেন্ট করো:\n\nমেথড: {method.upper()}\nনাম্বার: {number}\nএমাউন্ট: {amount} Tk\n\nটাকা পাঠিয়ে তোমার Transaction ID লিখে পাঠাও।")
+    bot.send_message(message.chat.id, f"পেমেন্ট করো:\nমেথড: {method.upper()}\nনাম্বার: {number}\nএমাউন্ট: {amount} Tk\n\nটাকা পাঠিয়ে Transaction ID লিখে পাঠাও।")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="trxid")
 def get_trx(message):
@@ -493,4 +475,153 @@ def get_photo(message):
     step = data["temp"][uid].get("step")
     if message.from_user.id == ADMIN_ID and step == "change_banner":
         try:
-            file_info = bot.get_file(message.
+            file_info = bot.get_file(message.photo[-1].file_id)
+            downloaded = bot.download_file(file_info.file_path)
+            with open("banner.jpg","wb") as f:
+                f.write(downloaded)
+            data["settings"]["banner"] = "banner.jpg"
+            del data["temp"][uid]
+            save()
+            bot.send_message(message.chat.id, "✅ ব্যানার চেঞ্জ হইছে!")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"ব্যানার সেভ হয় নাই: {e}")
+        return
+    if step != "screenshot":
+        return
+    t = data["temp"][uid]
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton("Approve", callback_data=f"approve_{uid}_{t['amount']}")
+    btn2 = types.InlineKeyboardButton("Reject", callback_data=f"reject_{uid}")
+    markup.add(btn1)
+    markup.add(btn2)
+    bot.send_message(ADMIN_ID, f"নতুন ডিপোজিট!\n@{message.from_user.username}\nID: {uid}\n{t['method'].upper()}\n{t['amount']} Tk\nTrxID: {t['trxid']}", reply_markup=markup)
+    bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+    bot.send_message(message.chat.id, "সাবমিট হইছে! এডমিন Approve করলেই ব্যালেন্স যোগ হবে।")
+    del data["temp"][uid]
+    save()
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("approve_") or c.data.startswith("reject_"))
+def handle_approve(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    if call.data.startswith("approve_"):
+        _, uid, amount = call.data.split("_")
+        amount = int(amount)
+        get_user(uid)
+        data["users"][uid]["balance"] += amount
+        save()
+        bot.send_message(int(uid), f"Approve হইছে! {amount} Tk যোগ হইছে। নতুন ব্যালেন্স: {data['users'][uid]['balance']} Tk")
+        bot.edit_message_text(f"Approve - {uid} কে {amount} Tk দেওয়া হইছে", call.message.chat.id, call.message.message_id)
+    else:
+        uid = call.data.replace("reject_", "")
+        bot.send_message(int(uid), "Reject হইছে। TrxID / স্ক্রিনশট ভুল মনে হইছে।")
+        bot.edit_message_text(f"Reject - {uid}", call.message.chat.id, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("buy_"))
+def buy_start(call):
+    key = call.data.replace("buy_", "")
+    p = data["products"].get(key)
+    if not p:
+        return
+    stock = count_stock(key)
+    if stock <= 0:
+        bot.send_message(call.message.chat.id, "স্টক শেষ!")
+        return
+    markup = types.InlineKeyboardMarkup(row_width=4)
+    b1 = types.InlineKeyboardButton("1 পিস", callback_data=f"qty_{key}_1")
+    b2 = types.InlineKeyboardButton("2 পিস", callback_data=f"qty_{key}_2")
+    b3 = types.InlineKeyboardButton("5 পিস", callback_data=f"qty_{key}_5")
+    b4 = types.InlineKeyboardButton("10 পিস", callback_data=f"qty_{key}_10")
+    markup.add(b1)
+    markup.add(b2)
+    markup.add(b3)
+    markup.add(b4)
+    markup.add(types.InlineKeyboardButton("Back", callback_data="back_menu"))
+    bot.send_message(call.message.chat.id, f"প্রোডাক্ট: {p['name']}\nদাম: {p['price']} Tk / পিস\nস্টক: {stock} পিস\n\nকত পিস কিনবা?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("qty_"))
+def qty_select(call):
+    try:
+        _, key, qty = call.data.split("_")
+        qty = int(qty)
+    except:
+        return
+    p = data["products"].get(key)
+    if not p:
+        return
+    stock = count_stock(key)
+    if qty > stock:
+        bot.answer_callback_query(call.id, f"স্টক মাত্র {stock} পিস আছে!", show_alert=True)
+        return
+    total = p["price"] * qty
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn1 = types.InlineKeyboardButton("✅ কনফার্ম", callback_data=f"confirm_{key}_{qty}")
+    btn2 = types.InlineKeyboardButton("❌ ক্যানসেল", callback_data="back_menu")
+    markup.add(btn1)
+    markup.add(btn2)
+    bot.send_message(call.message.chat.id, f"ORDER DETAILS\nপ্রোডাক্ট: {p['name']}\nপরিমাণ: {qty} পিস\nমোট: {total} Tk", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("confirm_"))
+def confirm_buy(call):
+    try:
+        _, key, qty = call.data.split("_")
+        qty = int(qty)
+    except:
+        return
+    p = data["products"].get(key)
+    if not p:
+        return
+    uid = str(call.from_user.id)
+    u = get_user(uid, call)
+    total = p["price"] * qty
+    stock = count_stock(key)
+    if qty > stock:
+        bot.send_message(call.message.chat.id, f"স্টক মাত্র {stock} পিস আছে!")
+        return
+    if u["balance"] < total:
+        bot.send_message(call.message.chat.id, f"ব্যালেন্স কম! আছে {u['balance']} Tk, লাগবে {total} Tk")
+        return
+    u["balance"] -= total
+    u["bought"].append(f"{p['name']} x{qty}")
+    u["bought_count"] += qty
+    save()
+    path = f"stock_{key}.xlsx"
+    wb_old = load_workbook(path)
+    ws_old = wb_old.active
+    all_rows = []
+    for row in ws_old.iter_rows(values_only=True):
+        if any(v is not None and str(v).strip() != "" for v in row):
+            all_rows.append(list(row))
+    take_rows = all_rows[:qty]
+    remain_rows = all_rows[qty:]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "My Product"
+    for r in take_rows:
+        ws.append(r)
+    out_path = f"order_{uid}_{int(datetime.now().timestamp())}.xlsx"
+    wb.save(out_path)
+    wb2 = Workbook()
+    ws2 = wb2.active
+    for r in remain_rows:
+        ws2.append(r)
+    wb2.save(path)
+    with open(out_path, "rb") as f:
+        bot.send_document(call.message.chat.id, f, caption=f"✅ কেনা সফল!\nপ্রোডাক্ট: {p['name']}\nপরিমাণ: {qty} পিস\nকাটা হইছে: {total} Tk\nবাকি ব্যালেন্স: {u['balance']} Tk")
+    if os.path.exists(out_path):
+        os.remove(out_path)
+    bot.send_message(ADMIN_ID, f"নতুন অর্ডার! {p['name']} x{qty} = {total} Tk, ID: {uid}")
+
+@bot.message_handler(commands=['send'])
+def send_prod(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        _, uid, txt = message.text.split(" ", 2)
+        bot.send_message(int(uid), f"তোমার প্রোডাক্ট রেডি:\n\n{txt}")
+        bot.send_message(message.chat.id, "Delivered")
+    except:
+        bot.send_message(message.chat.id, "ভুল! /send আইডি ডিটেইলস")
+
+print("Bot Running...")
+bot.infinity_polling()
