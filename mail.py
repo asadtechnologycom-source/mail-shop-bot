@@ -1,4 +1,15 @@
-import telebot
+import os
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+@app.route('/')
+def home():
+    return "Bot is Live!"
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+threading.Thread(target=run_flask, daemon=True).start()import telebot
 from telebot import types
 import json, os
 from openpyxl import Workbook, load_workbook
@@ -626,3 +637,4 @@ def send_prod(message):
 
 print("Bot Running...")
 bot.infinity_polling()
+bot.polling(none_stop=True)
