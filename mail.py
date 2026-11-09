@@ -3,6 +3,19 @@ from telebot import types
 import json, os
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
+from flask import Flask
+from threading import Thread
+
+# ---------- RENDER LIVE থাকার জন্য - এটা মুছবা না ----------
+app = Flask(__name__)
+@app.route('/')
+def home():
+    return "MAIL SHOP BD Bot is Live!"
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+Thread(target=run_web, daemon=True).start()
+# -------------------------------------------------------
 
 BOT_TOKEN = "8984459858:AAGp4YVV91muymq0ErICTulevJ-ZSsT31ds"
 ADMIN_ID = 7952385899
@@ -25,15 +38,23 @@ DEFAULT_DASH = """╔═══════════════════�
 🛒 নিচ থেকে প্রোডাক্ট সিলেক্ট করে কিনো।
 💳 আগে ডিপোজিট করো, তারপর কিনতে পারবা।"""
 
-if not os.path.exists("data.json"):
-    json.dump({"products": {}, "users": {}, "payments": {}, "channels": [], "temp": {}, "orders": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}, open("data.json","w"))
-data = json.load(open("data.json"))
-if "settings" not in data:
-    data["settings"] = {"dashboard": DEFAULT_DASH, "banner": None}
-    save() if False else json.dump(data, open("data.json","w"))
-
 def save():
     json.dump(data, open("data.json","w"))
+
+if not os.path.exists("data.json"):
+    data = {"products": {}, "users": {}, "payments": {}, "channels": [], "temp": {}, "orders": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}
+    json.dump(data, open("data.json","w"))
+else:
+    data = json.load(open("data.json"))
+
+# পুরানো data.json এ settings না থাকলে যোগ হবে
+if "settings" not in data:
+    data["settings"] = {"dashboard": DEFAULT_DASH, "banner": None}
+if "temp" not in data:
+    data["temp"] = {}
+if "orders" not in data:
+    data["orders"] = {}
+save()
 
 def get_user(uid, msg=None):
     uid = str(uid)
@@ -69,7 +90,7 @@ def join_markup():
     markup.add(types.InlineKeyboardButton("Join করছি, Check করো", callback_data="check_join"))
     return markup
 
-# ---------- START / MENU - PREMIUM + BANNER + DASHBOARD ----------
+# ---------- START / MENU ----------
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = str(message.from_user.id)
@@ -84,14 +105,11 @@ def show_menu(chat_id, uid, message=None):
     name = u.get("name") or (message.from_user.first_name if message else "User")
     username = f"@{u.get('username')}" if u.get("username") else "@NoUsername"
     bal = u["balance"]
-
-    # এডমিন প্যানেল থেকে চেঞ্জ করা ড্যাশবোর্ড মেসেজ
     dash_template = data["settings"].get("dashboard") or DEFAULT_DASH
     try:
         text = dash_template.format(name=name, username=username, uid=uid, bal=bal)
     except:
         text = dash_template
-
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton(f"💰 Balance: {bal:.2f} Tk", callback_data="mybal"))
     markup.add(types.InlineKeyboardButton("💳 ডিপোজিট করো", callback_data="deposit"))
@@ -101,8 +119,6 @@ def show_menu(chat_id, uid, message=None):
         markup.add(types.InlineKeyboardButton(f"💎 {p['name']} - {p['price']} Tk | {stock_emoji} স্টক: {stock}", callback_data=f"buy_{key}"))
     markup.add(types.InlineKeyboardButton("🚀 START SHOPPING NOW 🚀", callback_data="back_menu"))
     markup.add(types.InlineKeyboardButton(f"💬 Support - {ADMIN_USERNAME}", url=f"https://t.me/{ADMIN_USERNAME.replace('@','')}"))
-
-    # ব্যানার থাকলে ছবি সহ পাঠাবে, না থাকলে শুধু লেখা
     banner = data["settings"].get("banner")
     if banner and os.path.exists("banner.jpg"):
         try:
@@ -140,8 +156,6 @@ def admin(message):
     markup.add(types.InlineKeyboardButton("➕ প্রোডাক্ট Add", callback_data="admin_add_product"))
     markup.add(types.InlineKeyboardButton("🗑️ প্রোডাক্ট Delete", callback_data="admin_del_list"))
     markup.add(types.InlineKeyboardButton("📤 Excel Upload / স্টক Add", callback_data="admin_upload_list"))
-    markup.add(types.InlineKeyboardButton("💳 পেমেন্ট মেথড", callback_data="info_payment"))
-    markup.add(types.InlineKeyboardButton("📢 চ্যানেল", callback_data="info_channel"))
     markup.add(types.InlineKeyboardButton("📢 সবাইকে মেসেজ (Broadcast)", callback_data="broadcast_start"))
     markup.add(types.InlineKeyboardButton("📊 Status", callback_data="status"))
     markup.add(types.InlineKeyboardButton("📥 Receive - Excel (সব মেম্বার)", callback_data="receive_excel"))
@@ -152,9 +166,7 @@ def admin(message):
 def change_dash_start(call):
     if call.from_user.id != ADMIN_ID: return
     data["temp"][str(call.from_user.id)] = {"step": "change_dash"}; save()
-    bot.send_message(call.message.chat.id,
-        "✏️ **ড্যাশবোর্ড মেসেজ চেঞ্জ করো**\n\nএখন নতুন মেসেজটা লিখে পাঠাও।\n\nতুমি এই ৪টা ব্যবহার করতে পারবা, অটো বসে যাবে:\n`{name}` = ইউজারের নাম\n`{username}` = ইউজারনেম\n`{uid}` = আইডি\n`{bal}` = ব্যালেন্স\n\nউদাহরণ:\n╔═══════════════╗\n║ 💎 MAIL SHOP BD 💎 ║\n╚═══════════════╝\n👑 Name: {name}\n💰 Balance: {bal} Tk",
-        parse_mode="Markdown")
+    bot.send_message(call.message.chat.id, "✏️ ড্যাশবোর্ড মেসেজ চেঞ্জ করো\n\nএখন নতুন মেসেজটা লিখে পাঠাও।\n\nতুমি এই ৪টা ব্যবহার করতে পারবা:\n{name} = নাম\n{username} = ইউজারনেম\n{uid} = আইডি\n{bal} = ব্যালেন্স")
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="change_dash")
 def change_dash_save(message):
@@ -168,7 +180,7 @@ def change_dash_save(message):
 def change_banner_start(call):
     if call.from_user.id != ADMIN_ID: return
     data["temp"][str(call.from_user.id)] = {"step": "change_banner"}; save()
-    bot.send_message(call.message.chat.id, "🖼️ **ব্যানার চেঞ্জ করো**\n\nএখন নতুন ব্যানার ছবিটা পাঠাও।\n\nছবি পাঠাইলেই /start এ ওই ছবিটা উপরে দেখাবে।")
+    bot.send_message(call.message.chat.id, "🖼️ ব্যানার চেঞ্জ করো\n\nএখন নতুন ব্যানার ছবিটা পাঠাও।")
 
 @bot.message_handler(commands=['addchannel'])
 def addch(message):
@@ -226,7 +238,7 @@ def prod_price_step(message):
     try: price = int(message.text.strip())
     except: bot.send_message(message.chat.id, "শুধু সংখ্যা লিখো। যেমন: 50"); return
     data["temp"][uid]["prod_price"] = price; data["temp"][uid]["step"] = "prod_excel"; save()
-    bot.send_message(message.chat.id, f"দাম: {price} Tk / পিস\n\nএখন Excel ফাইলটা পাঠাও।\n\n১ লাইন = ১ পিস। ফাইলে যত লাইন থাকবে, স্টক তত হবে। ভিতরে ১ ঘর থাকুক বা ২ ঘর থাকুক, বট হুবহু কপি করবে।")
+    bot.send_message(message.chat.id, f"দাম: {price} Tk / পিস\n\nএখন Excel ফাইলটা পাঠাও।\n\n১ লাইন = ১ পিস।")
 
 @bot.callback_query_handler(func=lambda c: c.data=="admin_upload_list")
 def upload_list(call):
@@ -387,7 +399,6 @@ def get_photo(message):
     uid = str(message.from_user.id)
     if uid not in data["temp"]: return
     step = data["temp"][uid].get("step")
-    # 1. ব্যানার চেঞ্জ
     if message.from_user.id == ADMIN_ID and step == "change_banner":
         try:
             file_info = bot.get_file(message.photo[-1].file_id)
@@ -399,6 +410,8 @@ def get_photo(message):
         except Exception as e:
             bot.send_message(message.chat.id, f"ব্যানার সেভ হয় নাই: {e}")
         return
-    # 2. ডিপোজিট স্ক্রিনশট
     if step != "screenshot": return
-   
+    t = data["temp"][uid]
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Approve", callback_data=f"approve_{uid}_{t['amount']}"),
+            
