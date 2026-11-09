@@ -1,15 +1,4 @@
-import os
-from flask import Flask
-import threading
-
-app = Flask(__name__)
-@app.route('/')
-def home():
-    return "Bot is Live!"
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-threading.Thread(target=run_flask, daemon=True).start()import telebot
+import telebot
 from telebot import types
 import json, os
 from openpyxl import Workbook, load_workbook
@@ -26,7 +15,7 @@ def run_web():
     app.run(host="0.0.0.0", port=port)
 Thread(target=run_web, daemon=True).start()
 
-BOT_TOKEN = "8984459858:"
+BOT_TOKEN = "তোমার_টোকেন_এখানে_বসাও"
 ADMIN_ID = 7952385899
 ADMIN_USERNAME = "@DULU_VAI"
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -324,8 +313,7 @@ def delprod_btn(call):
         if os.path.exists(path):
             os.remove(path)
         bot.send_message(call.message.chat.id, "প্রোডাক্ট Delete হইছে")
-
-    @bot.message_handler(content_types=['document'])
+        @bot.message_handler(content_types=['document'])
 def handle_doc(message):
     uid = str(message.from_user.id)
     if message.from_user.id != ADMIN_ID:
@@ -554,7 +542,8 @@ def buy_start(call):
 @bot.callback_query_handler(func=lambda c: c.data.startswith("qty_"))
 def qty_select(call):
     try:
-        _, key, qty = call.data.split("_")
+        _, rest = call.data.split("_", 1)
+        key, qty = rest.rsplit("_", 1)
         qty = int(qty)
     except:
         return
@@ -576,7 +565,8 @@ def qty_select(call):
 @bot.callback_query_handler(func=lambda c: c.data.startswith("confirm_"))
 def confirm_buy(call):
     try:
-        _, key, qty = call.data.split("_")
+        _, rest = call.data.split("_", 1)
+        key, qty = rest.rsplit("_", 1)
         qty = int(qty)
     except:
         return
@@ -636,5 +626,4 @@ def send_prod(message):
         bot.send_message(message.chat.id, "ভুল! /send আইডি ডিটেইলস")
 
 print("Bot Running...")
-bot.infinity_polling()
-bot.polling(none_stop=True)
+bot.infinity_polling(none_stop=True)
