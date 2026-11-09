@@ -313,7 +313,8 @@ def delprod_btn(call):
         if os.path.exists(path):
             os.remove(path)
         bot.send_message(call.message.chat.id, "প্রোডাক্ট Delete হইছে")
-        @bot.message_handler(content_types=['document'])
+
+    @bot.message_handler(content_types=['document'])
 def handle_doc(message):
     uid = str(message.from_user.id)
     if message.from_user.id != ADMIN_ID:
