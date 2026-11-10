@@ -517,7 +517,7 @@ def handle_doc(message):
         stock = count_stock(key)
         bot.send_message(message.chat.id, f"✅ স্টক Add হইছে!\nনতুন: {len(new_rows)} পিস\nমোট স্টক: {stock} পিস")
 
-# ===== এখানেই সমস্যা ছিলো - 488 লাইন ঠিক করা হলো =====
+# ===== এডমিন জন্য স্ট্যাটাস - 488 লাইনে ঠিক করা হলো =====
 @bot.callback_query_handler(func=lambda c: c.data=="status")
 def status(call):
     if call.from_user.id != ADMIN_ID:
@@ -525,4 +525,9 @@ def status(call):
     bot.answer_callback_query(call.id)
     total_users = len(data["users"])
     total_bal = 0
-   
+    for u in data["users"].values():
+        total_bal += u.get("balance", 0)
+    bot.send_message(call.message.chat.id, f"📊 স্ট্যাটাস\n\n👥 মোট ইউজার: {total_users}\n💰 মোট ব্যালেন্স: {total_bal} ৳")
+
+print("Bot Starting...")
+bot.infinity_polling()
