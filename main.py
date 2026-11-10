@@ -480,6 +480,9 @@ def status(call):
         return
     bot.answer_callback_query(call.id)
     total_users = len(data["users"])
-    total_bal = sum(u["balance"] for u in data["users"].values())
-    total_sold = sum(u["bought_count"] for u in data["users"].values())
-    total_stock = sum(count_sto
+    total_bal = 0
+    for u in data["users"].values():
+        total_bal += u["balance"]
+    total_sold = 0
+    for u in data["users"].values():
+        total_sold += u[
