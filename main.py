@@ -16,11 +16,26 @@ def run_web():
     app.run(host="0.0.0.0", port=port)
 Thread(target=run_web, daemon=True).start()
 
-# টোকেন কোডে রাখবা না, Railway Variables থেকে আসবে
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_ID = 7952385899
 ADMIN_USERNAME = "@DULU_VAI"
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# তোমার পেমেন্ট নাম্বার
+DEFAULT_PAYMENTS = {
+    "bkash": "01613014899",
+    "nagad": "01787923731"
+}
+
+def payment_name(key):
+    key = key.lower()
+    if key == "bkash":
+        return "🩷 bKash"
+    if key == "nagad":
+        return "🧡 Nagad"
+    if key == "rocket":
+        return "💜 Rocket"
+    return f"💳 {key.capitalize()}"
 
 DEFAULT_DASH = """╔═══════════════════════╗
 ║ 💎 MAIL SHOP BD 💎 ║
@@ -36,13 +51,13 @@ def save():
     json.dump(data, open("data.json","w"))
 
 if not os.path.exists("data.json"):
-    data = {"products": {}, "users": {}, "payments": {}, "channels": [], "temp": {}, "orders": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}
+    data = {"products": {}, "users": {}, "payments": DEFAULT_PAYMENTS.copy(), "channels": [], "temp": {}, "orders": {}, "deposits": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}
     json.dump(data, open("data.json","w"))
 else:
     try:
         data = json.load(open("data.json"))
     except:
-        data = {"products": {}, "users": {}, "payments": {}, "channels": [], "temp": {}, "orders": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}
+        data = {"products": {}, "users": {}, "payments": DEFAULT_PAYMENTS.copy(), "channels": [], "temp": {}, "orders": {}, "deposits": {}, "settings": {"dashboard": DEFAULT_DASH, "banner": None}}
         save()
 
 if "settings" not in data:
@@ -56,9 +71,14 @@ if "users" not in data:
 if "products" not in data:
     data["products"] = {}
 if "payments" not in data:
-    data["payments"] = {}
+    data["payments"] = DEFAULT_PAYMENTS.copy()
 if "channels" not in data:
     data["channels"] = []
+if "deposits" not in data:
+    data["deposits"] = {}
+for k,v in DEFAULT_PAYMENTS.items():
+    if k not in data["payments"]:
+        data["payments"][k] = v
 save()
 
 def get_user(uid, msg=None):
@@ -205,6 +225,123 @@ def show_menu(chat_id, uid, message=None):
         except:
             pass
     bot.send_message(chat_id, text, reply_markup=markup)
+
+# ================= DEPOSIT SYSTEM - NEW =================
+
+@bot.callback_query_handler(func=lambda c: c.data=="deposit")
+def deposit_start(call):
+    bot.answer_callback_query(call.id)
+    if not data["payments"]:
+        bot.send_message(call.message.chat.id, "❌ এখনো কোনো পেমেন্ট মেথড Add করা হয় নাই। এডমিনের সাথে যোগাযোগ করো।")
+        return
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, num in data["payments"].items():
+        markup.add(types.InlineKeyboardButton(f"{payment_name(key)} - {num}", callback_data=f"dep_select_{key}"))
+    markup.add(types.InlineKeyboardButton("❌ ক্যানসেল", callback_data="back_menu"))
+    bot.send_message(call.message.chat.id, "💳 ডিপোজিট করো\n\nকোন মেথডে টাকা পাঠাবা সিলেক্ট করো:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("dep_select_"))
+def deposit_select_method(call):
+    bot.answer_callback_query(call.id)
+    method = call.data.replace("dep_select_", "").lower()
+    if method not in data["payments"]:
+        bot.send_message(call.message.chat.id, "এই মেথডটা পাওয়া যায় নাই।")
+        return
+    uid = str(call.from_user.id)
+    data["temp"][uid] = {"step": "dep_amount", "method": method}
+    save()
+    bot.send_message(call.message.chat.id, f"তুমি সিলেক্ট করছো: {payment_name(method)}\n\n💰 কত টাকা ডিপোজিট করবা? শুধু সংখ্যা লিখো।\nযেমন: 100\n\nক্যানসেল করতে /cancel")
+
+@bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="dep_amount")
+def deposit_amount_step(message):
+    uid = str(message.from_user.id)
+    try:
+        amt = int(message.text.strip())
+        if amt <= 0:
+            raise ValueError()
+    except:
+        bot.send_message(message.chat.id, "শুধু সংখ্যা লিখো। যেমন: 100")
+        return
+    method = data["temp"][uid]["method"]
+    number = data["payments"].get(method, "")
+    data["temp"][uid]["amount"] = amt
+    data["temp"][uid]["step"] = "dep_txid"
+    save()
+    bot.send_message(message.chat.id, f"✅ Amount: {amt} Tk\n\n📱 এখন এই নাম্বারে টাকা পাঠাও:\n\n{payment_name(method)}\n`{number}`\n\nটাকা পাঠানো হয়ে গেলে তোমার Transaction ID / TrxID টা লিখে পাঠাও।\n\nক্যানসেল করতে /cancel", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="dep_txid")
+def deposit_txid_step(message):
+    uid = str(message.from_user.id)
+    txid = message.text.strip()
+    if len(txid) < 4:
+        bot.send_message(message.chat.id, "সঠিক TrxID দাও।")
+        return
+    data["temp"][uid]["txid"] = txid
+    data["temp"][uid]["step"] = "dep_screenshot"
+    save()
+    bot.send_message(message.chat.id, f"✅ TrxID: {txid}\n\n🧾 এখন পেমেন্টের স্ক্রিনশট টা ছবি আকারে পাঠাও।\n\nক্যানসেল করতে /cancel")
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("dep_approve_"))
+def deposit_approve(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "তুমি এডমিন না!", show_alert=True)
+        return
+    dep_id = call.data.replace("dep_approve_", "")
+    dep = data["deposits"].get(dep_id)
+    if not dep:
+        bot.answer_callback_query(call.id, "এই রিকোয়েস্ট পাওয়া যায় নাই।")
+        return
+    if dep["status"] != "pending":
+        bot.answer_callback_query(call.id, f"এইটা আগেই {dep['status']} করা হইছে।")
+        return
+    uid = dep["user_id"]
+    get_user(uid)
+    data["users"][uid]["balance"] += int(dep["amount"])
+    dep["status"] = "approved"
+    save()
+    bot.answer_callback_query(call.id, "Approve হইছে ✅")
+    try:
+        bot.edit_message_caption(f"✅ APPROVED - {dep['amount']} Tk\n\n👤 {dep['user_name']} ({uid})\n{payment_name(dep['method'])} | TrxID: {dep['txid']}", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    except:
+        bot.send_message(call.message.chat.id, f"✅ Approve হইছে: {dep['amount']} Tk - {uid}")
+    try:
+        bot.send_message(int(uid), f"✅ তোমার ডিপোজিট Approve হইছে!\n\n💰 {dep['amount']} Tk তোমার ব্যালেন্সে যোগ হইছে।\nনতুন ব্যালেন্স: {data['users'][uid]['balance']} Tk")
+    except:
+        pass
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("dep_reject_"))
+def deposit_reject(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "তুমি এডমিন না!", show_alert=True)
+        return
+    dep_id = call.data.replace("dep_reject_", "")
+    dep = data["deposits"].get(dep_id)
+    if not dep:
+        bot.answer_callback_query(call.id, "এই রিকোয়েস্ট পাওয়া যায় নাই।")
+        return
+    if dep["status"] != "pending":
+        bot.answer_callback_query(call.id, f"এইটা আগেই {dep['status']} করা হইছে।")
+        return
+    dep["status"] = "rejected"
+    save()
+    bot.answer_callback_query(call.id, "Reject হইছে ❌")
+    try:
+        bot.edit_message_caption(f"❌ REJECTED - {dep['amount']} Tk\n\n👤 {dep['user_name']} ({dep['user_id']})\n{payment_name(dep['method'])} | TrxID: {dep['txid']}", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    except:
+        bot.send_message(call.message.chat.id, f"❌ Reject হইছে: {dep['amount']} Tk")
+    try:
+        bot.send_message(int(dep["user_id"]), f"❌ তোমার ডিপোজিট Reject হইছে।\n\n💰 {dep['amount']} Tk\nTrxID: {dep['txid']}\n\nসঠিক তথ্য দিয়ে আবার চেষ্টা করো বা সাপোর্টে মেসেজ দাও।")
+    except:
+        pass
+
+@bot.message_handler(commands=['deposit'])
+def deposit_cmd(message):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, num in data["payments"].items():
+        markup.add(types.InlineKeyboardButton(f"{payment_name(key)} - {num}", callback_data=f"dep_select_{key}"))
+    bot.send_message(message.chat.id, "💳 ডিপোজিট করো\n\nকোন মেথডে টাকা পাঠাবা সিলেক্ট করো:", reply_markup=markup)
+
+# ================= DEPOSIT END =================
 
 @bot.callback_query_handler(func=lambda c: c.data=="check_join")
 def check_join_btn(call):
@@ -517,17 +654,144 @@ def handle_doc(message):
         stock = count_stock(key)
         bot.send_message(message.chat.id, f"✅ স্টক Add হইছে!\nনতুন: {len(new_rows)} পিস\nমোট স্টক: {stock} পিস")
 
-# ===== এডমিন জন্য স্ট্যাটাস - 488 লাইনে ঠিক করা হলো =====
 @bot.callback_query_handler(func=lambda c: c.data=="status")
 def status(call):
     if call.from_user.id != ADMIN_ID:
         return
     bot.answer_callback_query(call.id)
     total_users = len(data["users"])
-    total_bal = 0
-    for u in data["users"].values():
-        total_bal += u.get("balance", 0)
-    bot.send_message(call.message.chat.id, f"📊 স্ট্যাটাস\n\n👥 মোট ইউজার: {total_users}\n💰 মোট ব্যালেন্স: {total_bal} ৳")
+    total_bal = sum([u.get("balance", 0) for u in data["users"].values()])
+    total_products = len(data["products"])
+    pending = len([d for d in data["deposits"].values() if d["status"]=="pending"])
+    bot.send_message(call.message.chat.id, f"📊 স্ট্যাটাস\n\n👥 মোট ইউজার: {total_users}\n💰 মোট ব্যালেন্স: {total_bal} Tk\n📦 প্রোডাক্ট: {total_products} টা\n⏳ পেন্ডিং ডিপোজিট: {pending} টা")
+
+@bot.callback_query_handler(func=lambda c: c.data=="broadcast_start")
+def broadcast_start(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    data["temp"][str(call.from_user.id)] = {"step": "broadcast"}
+    save()
+    bot.send_message(call.message.chat.id, "সবাইকে কি মেসেজ পাঠাবা? লিখে পাঠাও।")
+
+@bot.message_handler(func=lambda m: str(m.from_user.id) in data["temp"] and data["temp"][str(m.from_user.id)].get("step")=="broadcast")
+def broadcast_send(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    del data["temp"][str(message.from_user.id)]
+    save()
+    sent = 0
+    for uid in list(data["users"].keys()):
+        try:
+            bot.send_message(int(uid), message.text)
+            sent += 1
+        except:
+            pass
+    bot.send_message(message.chat.id, f"✅ {sent} জনকে পাঠানো হইছে।")
+
+@bot.callback_query_handler(func=lambda c: c.data=="receive_excel")
+def receive_excel(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, "Excel নিতে চাইলে প্রোডাক্টের স্টক ফাইল Railway থেকে ডাউনলোড করতে হবে।")
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("buy_"))
+def buy_product(call):
+    bot.answer_callback_query(call.id)
+    uid = str(call.from_user.id)
+    key = call.data.replace("buy_", "")
+    p = data["products"].get(key)
+    if not p:
+        bot.send_message(call.message.chat.id, "প্রোডাক্ট পাওয়া যায় নাই।")
+        return
+    u = get_user(uid, call)
+    if u["balance"] < p["price"]:
+        bot.send_message(call.message.chat.id, f"❌ ব্যালেন্স কম!\nদাম: {p['price']} Tk\nতোমার ব্যালেন্স: {u['balance']} Tk\n\nআগে ডিপোজিট করো।")
+        return
+    header, rows = get_stock_rows(key)
+    if not rows:
+        bot.send_message(call.message.chat.id, "❌ স্টক শেষ!")
+        return
+    item = rows[0]
+    wb = Workbook()
+    ws = wb.active
+    if header:
+        ws.append(header)
+    for r in rows[1:]:
+        ws.append(r)
+    wb.save(f"stock_{key}.xlsx")
+    u["balance"] -= p["price"]
+    u["bought"].append(f"{p['name']} - {p['price']} Tk")
+    u["bought_count"] += 1
+    save()
+    if header:
+        txt = f"✅ কেনা হইছে!\n\n📦 {p['name']}\n💰 {p['price']} Tk\n\n" + "\n".join([f"{h}: {v}" for h, v in zip(header, item) if h])
+    else:
+        txt = f"✅ কেনা হইছে!\n\n📦 {p['name']}\n" + "\n".join([str(x) for x in item])
+    bot.send_message(call.message.chat.id, txt)
+    bot.send_message(call.message.chat.id, f"বাকি ব্যালেন্স: {u['balance']} Tk")
+
+# একটাই ফটো হ্যান্ডলার - ডিপোজিট স্ক্রিনশট + ব্যানার দুইটাই এখানে
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    uid = str(message.from_user.id)
+    if uid not in data["temp"]:
+        return
+    step = data["temp"][uid].get("step")
+    # 1. ডিপোজিট স্ক্রিনশট
+    if step == "dep_screenshot":
+        t = data["temp"][uid]
+        photo_id = message.photo[-1].file_id
+        dep_id = f"dep_{uid}_{int(datetime.now().timestamp())}"
+        data["deposits"][dep_id] = {
+            "user_id": uid,
+            "user_name": message.from_user.first_name or "",
+            "username": message.from_user.username or "",
+            "method": t["method"],
+            "amount": t["amount"],
+            "txid": t["txid"],
+            "photo": photo_id,
+            "status": "pending",
+            "time": datetime.now().strftime("%d/%m %H:%M")
+        }
+        del data["temp"][uid]
+        save()
+        bot.send_message(message.chat.id, "✅ ডিপোজিট রিকোয়েস্ট পাঠানো হইছে!\n\nএডমিন চেক করে Approve করলে তোমার ব্যালেন্সে টাকা যোগ হয়ে যাবে। একটু অপেক্ষা করো।")
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("✅ Approve", callback_data=f"dep_approve_{dep_id}"),
+            types.InlineKeyboardButton("❌ Reject", callback_data=f"dep_reject_{dep_id}")
+        )
+        caption = f"🔔 নতুন ডিপোজিট রিকোয়েস্ট!\n\n👤 Name: {message.from_user.first_name}\n🆔 ID: {uid}\n💌 Username: @{message.from_user.username or 'NoUsername'}\n\n{payment_name(t['method'])}\n💰 Amount: {t['amount']} Tk\n🧾 TrxID: {t['txid']}\n🕒 Time: {data['deposits'][dep_id]['time']}"
+        try:
+            bot.send_photo(ADMIN_ID, photo_id, caption=caption, reply_markup=markup)
+        except Exception as e:
+            bot.send_message(ADMIN_ID, caption + f"\n\n(ছবি পাঠানো যায় নাই: {e})", reply_markup=markup)
+        return
+    # 2. ব্যানার চেঞ্জ
+    if step == "change_banner":
+        if message.from_user.id != ADMIN_ID:
+            return
+        try:
+            file_info = bot.get_file(message.photo[-1].file_id)
+            downloaded = bot.download_file(file_info.file_path)
+            with open("banner.jpg", "wb") as f:
+                f.write(downloaded)
+            data["settings"]["banner"] = True
+            del data["temp"][uid]
+            save()
+            bot.send_message(message.chat.id, "✅ ব্যানার চেঞ্জ হইছে!")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"ব্যানার সেভ হয় নাই: {e}")
+        return
+
+@bot.message_handler(func=lambda m: True)
+def fallback(message):
+    if str(message.from_user.id) in data["temp"]:
+        return
+    if message.text and message.text.startswith("/"):
+        return
+    bot.send_message(message.chat.id, "মেনু দেখতে /start দাও।")
 
 print("Bot Starting...")
 bot.infinity_polling()
